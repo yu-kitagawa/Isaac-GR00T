@@ -68,7 +68,7 @@ GR00T N1.5 represents a significant upgrade over GR00T N1, with improvements in 
 
 - **Language Following**: Significantly improved language command following versus N1 - 93.3% vs 46.6% on GR-1 manipulation tasks.
 - **Data Efficiency**: Better performance in low-data regimes (0-shot and few-shot scenarios)
-- **Better novel object Generalization**
+- **Better Novel Object Generalization**
 - **New Embodiment Heads**: Added support for single arm robots with end-effector (EEF) control space via `EmbodimentTag.OXE_DROID` head, and humanoid robots with grippers via `EmbodimentTag.AGIBOT_GENIE1` head, expanding beyond joint space control to enable broader robot compatibility
 
 These improvements make GR00T N1.5 particularly effective for applications requiring strong language understanding, few-shot adaptation, and generalization to novel objects and environments.
@@ -116,7 +116,7 @@ pip install --no-build-isolation flash-attn==2.7.1.post4
 
 ## Getting started with this repo
 
-We provide accessible Jupyter notebooks and detailed documentation in the [`./getting_started`](./getting_started) folder. Utility scripts can be found in the [`./scripts`](./scripts) folder.
+We provide accessible Jupyter notebooks and detailed documentation in the [`./getting_started`](./getting_started) folder. Utility scripts can be found in the [`./scripts`](./scripts) folder. Additionally, a comprehensive tutorial for finetuning the model on the SO-101 robot is available on [HuggingFace](https://huggingface.co/blog/nvidia/gr00t-n1-5-so101-tuning).
 
 ## 1. Data Format & Loading
 
