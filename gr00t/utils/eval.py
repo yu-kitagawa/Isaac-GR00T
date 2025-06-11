@@ -52,7 +52,10 @@ def calc_mse_for_single_trajectory(
 
         # NOTE this is to get all modality keys concatenated
         # concat_state = data_point[f"state.{modality_keys[0]}"][0]
-        # concat_gt_action = data_point[f"action.{modality_keys[0]}"][0]
+        # # concat_gt_action = data_point[f"action.{modality_keys[0]}"][0]
+        # concat_state = np.concatenate(
+        #     [data_point[f"state.{key}"][0] for key in modality_keys], axis=0
+        # )
         concat_state = np.concatenate(
             [data_point[f"state.{key}"][0] for key in modality_keys], axis=0
         )
@@ -85,6 +88,11 @@ def calc_mse_for_single_trajectory(
     mse = np.mean((gt_action_across_time - pred_action_across_time) ** 2)
     print("Unnormalized Action MSE across single traj:", mse)
 
+    print("state_joints vs time", state_joints_across_time.shape)
+    print("gt_action_joints vs time", gt_action_across_time.shape)
+    print("pred_action_joints vs time", pred_action_across_time.shape)
+
+    # num_of_joints = state_joints_across_time.shape[1]
     action_dim = gt_action_across_time.shape[1]
 
     if plot:
