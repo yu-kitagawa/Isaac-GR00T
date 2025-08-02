@@ -105,7 +105,8 @@ cd Isaac-GR00T
 
 Create a new conda environment and install the dependencies. We recommend Python 3.10:
 
-> Note that, please make sure your CUDA version is 12.4. Otherwise, you may have a hard time with properly configuring flash-attn module.
+> Note: CUDA 12.4 is recommended and officially tested. However, CUDA 11.8 has also been verified to work.
+> In such cases, make sure to install a compatible version of `flash-attn` manually (e.g., `flash-attn==2.8.2` was confirmed working with CUDA 11.8).
 
 ```sh
 conda create -n gr00t python=3.10
