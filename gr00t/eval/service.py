@@ -14,12 +14,11 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from io import BytesIO
 from typing import Any, Callable, Dict
-import gr00t.utils.serialization as serialization
 
-import torch
 import zmq
+
+import gr00t.utils.serialization as serialization
 
 
 class TorchSerializer:
