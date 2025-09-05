@@ -779,6 +779,10 @@ class AlohaDataConfig(BaseDataConfig):
         "video.cam_low",
         "video.cam_left_wrist",
         "video.cam_right_wrist",
+        # "video.overhead_cam_rgb",
+        # "video.wrist_cam_left_rgb",
+        # "video.wrist_cam_right_rgb",
+        # "video.worms_eye_cam_rgb",
     ]
     state_keys = [
         "state.qpos",
@@ -957,6 +961,97 @@ class Ur5eDataConfig(BaseDataConfig):
 
 ###########################################################################################
 
+
+class HsrDataConfig(BaseDataConfig):
+    video_keys = [
+        "video.head_rgb",
+        "video.hand_rgb",
+    ]
+    state_keys = [
+        "state.qpos",
+    ]
+    action_keys = [
+        "action.action",
+    ]
+    language_keys = ["annotation.human.action.task_description"]
+    observation_indices = [0]
+    action_indices = list(range(16))
+
+    def modality_config(self) -> dict[str, ModalityConfig]:
+        video_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.video_keys,
+        )
+
+        state_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.state_keys,
+        )
+
+        action_modality = ModalityConfig(
+            delta_indices=self.action_indices,
+            modality_keys=self.action_keys,
+        )
+
+        language_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.language_keys,
+        )
+
+        modality_configs = {
+            "video": video_modality,
+            "state": state_modality,
+            "action": action_modality,
+            "language": language_modality,
+        }
+
+        return modality_configs
+
+    def transform(self) -> ModalityTransform:
+        transforms = [
+            # video transforms
+            VideoToTensor(apply_to=self.video_keys),
+            VideoCrop(apply_to=self.video_keys, scale=0.95),
+            VideoResize(apply_to=self.video_keys, height=224, width=224, interpolation="linear"),
+            VideoColorJitter(
+                apply_to=self.video_keys,
+                brightness=0.3,
+                contrast=0.4,
+                saturation=0.5,
+                hue=0.08,
+            ),
+            VideoToNumpy(apply_to=self.video_keys),
+            # state transforms
+            StateActionToTensor(apply_to=self.state_keys),
+            StateActionTransform(
+                apply_to=self.state_keys,
+                normalization_modes={key: "min_max" for key in self.state_keys},
+            ),
+            # action transforms
+            StateActionToTensor(apply_to=self.action_keys),
+            StateActionTransform(
+                apply_to=self.action_keys,
+                normalization_modes={key: "min_max" for key in self.action_keys},
+            ),
+            # concat transforms
+            ConcatTransform(
+                video_concat_order=self.video_keys,
+                state_concat_order=self.state_keys,
+                action_concat_order=self.action_keys,
+            ),
+            # model-specific transform
+            GR00TTransform(
+                state_horizon=len(self.observation_indices),
+                action_horizon=len(self.action_indices),
+                max_state_dim=64,
+                max_action_dim=32,
+            ),
+        ]
+        return ComposedModalityTransform(transforms=transforms)
+
+
+###########################################################################################
+
 DATA_CONFIG_MAP = {
     "fourier_gr1_arms_waist": FourierGr1ArmsWaistDataConfig(),
     "fourier_gr1_arms_only": FourierGr1ArmsOnlyDataConfig(),
@@ -965,14 +1060,12 @@ DATA_CONFIG_MAP = {
     "bimanual_panda_hand": BimanualPandaHandDataConfig(),
     "single_panda_gripper": SinglePandaGripperDataConfig(),
     "so100": So100DataConfig(),
-<<<<<<< HEAD
-    "aloha": AlohaDataConfig(),
-    "ur5e": Ur5eDataConfig(),
-=======
     "so100_dualcam": So100DualCamDataConfig(),
     "unitree_g1": UnitreeG1DataConfig(),
     "unitree_g1_full_body": UnitreeG1FullBodyDataConfig(),
     "oxe_droid": OxeDroidDataConfig(),
     "agibot_genie1": AgibotGenie1DataConfig(),
->>>>>>> upstream/main
+    "aloha": AlohaDataConfig(),
+    "ur5e": Ur5eDataConfig(),
+    "hsr": HsrDataConfig(),
 }
