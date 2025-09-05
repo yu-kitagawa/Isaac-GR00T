@@ -13,14 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import argparse
 import warnings
+from dataclasses import dataclass, field
+from typing import List, Literal
 
 import numpy as np
+import tyro
 
 from gr00t.data.dataset import LeRobotSingleDataset
+from gr00t.data.embodiment_tags import EMBODIMENT_TAG_MAPPING
 from gr00t.eval.robot import RobotInferenceClient
-from gr00t.experiment.data_config import DATA_CONFIG_MAP
+from gr00t.experiment.data_config import load_data_config
 from gr00t.model.policy import BasePolicy, Gr00tPolicy
 from gr00t.utils.eval import calc_mse_for_single_trajectory
 
@@ -29,58 +32,78 @@ warnings.simplefilter("ignore", category=FutureWarning)
 """
 Example command:
 
-python scripts/eval_policy.py --host localhost --port 5555 --plot
-    --modality_keys right_arm right_hand
-    --steps 250
-    --trajs 1000
-    --action_horizon 16
-    --video_backend decord
-    --dataset_path demo_data/robot_sim.PickNPlace/
-    --embodiment_tag gr1
-    --data_config gr1_arms_waist
-provide --model_path to load up the model checkpoint in this script.
+NOTE: provide --model_path to load up the model checkpoint in this script,
+        else it will use the default host and port via RobotInferenceClient
+
+python scripts/eval_policy.py --plot --model-path nvidia/GR00T-N1.5-3B
 """
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--host", type=str, default="localhost", help="host")
-    parser.add_argument("--port", type=int, default=5555, help="port")
-    parser.add_argument("--plot", action="store_true", help="plot images")
-    parser.add_argument("--modality_keys", nargs="+", type=str, default=["right_arm", "right_hand"])
-    parser.add_argument(
-        "--data_config",
-        type=str,
-        default="gr1_arms_only",
-        choices=list(DATA_CONFIG_MAP.keys()),
-        help="data config name",
-    )
-    parser.add_argument("--steps", type=int, default=150, help="number of steps to run")
-    parser.add_argument("--trajs", type=int, default=1, help="trajectories to run")
-    parser.add_argument("--action_horizon", type=int, default=16)
-    parser.add_argument("--video_backend", type=str, default="decord")
-    parser.add_argument("--dataset_path", type=str, default="demo_data/robot_sim.PickNPlace/")
-    parser.add_argument(
-        "--embodiment_tag",
-        type=str,
-        help="The embodiment tag for the model.",
-        default="gr1",
-    )
-    ## When using a model instead of client-server mode.
-    parser.add_argument(
-        "--model_path",
-        type=str,
-        default=None,
-        help="[Optional] Path to the model checkpoint directory, this will disable client server mode.",
-    )
-    parser.add_argument(
-        "--denoising_steps",
-        type=int,
-        help="Number of denoising steps if model_path is provided",
-        default=4,
-    )
-    args = parser.parse_args()
 
-    data_config = DATA_CONFIG_MAP[args.data_config]
+@dataclass
+class ArgsConfig:
+    """Configuration for evaluating a policy."""
+
+    host: str = "localhost"
+    """Host to connect to."""
+
+    port: int = 5555
+    """Port to connect to."""
+
+    plot: bool = False
+    """Whether to plot the images."""
+
+    modality_keys: List[str] = field(default_factory=lambda: ["right_arm", "left_arm"])
+    """Modality keys to evaluate."""
+
+    data_config: str = "fourier_gr1_arms_only"
+    """
+    Data config to use, e.g. so100, fourier_gr1_arms_only, unitree_g1, etc.
+    Or a path to a custom data config file. e.g. "module:ClassName" format.
+    See gr00t/experiment/data_config.py for more details.
+    """
+
+    steps: int = 150
+    """Number of steps to evaluate."""
+
+    trajs: int = 1
+    """Number of trajectories to evaluate."""
+
+    start_traj: int = 0
+    """Start trajectory to evaluate."""
+
+    action_horizon: int = None
+    """Action horizon to evaluate. If None, will use the data config's action horizon."""
+
+    video_backend: Literal["decord", "torchvision_av"] = "decord"
+    """Video backend to use for various codec options. h264: decord or av: torchvision_av"""
+
+    dataset_path: str = "demo_data/robot_sim.PickNPlace/"
+    """Path to the dataset."""
+
+    embodiment_tag: Literal[tuple(EMBODIMENT_TAG_MAPPING.keys())] = "gr1"
+    """Embodiment tag to use."""
+
+    model_path: str = None
+    """Path to the model checkpoint."""
+
+    denoising_steps: int = 4
+    """Number of denoising steps to use."""
+
+    save_plot_path: str = None
+    """Path to save the plot."""
+
+    plot_state: bool = False
+    """Whether to plot the state."""
+
+
+def main(args: ArgsConfig):
+    data_config = load_data_config(args.data_config)
+
+    # Set action_horizon from data config if not provided
+    if args.action_horizon is None:
+        args.action_horizon = len(data_config.action_indices)
+        print(f"Using action_horizon={args.action_horizon} from data config '{args.data_config}'")
+
     if args.model_path is not None:
         import torch
 
@@ -98,12 +121,9 @@ if __name__ == "__main__":
     else:
         policy: BasePolicy = RobotInferenceClient(host=args.host, port=args.port)
 
-    all_gt_actions = []
-    all_pred_actions = []
-
     # Get the supported modalities for the policy
     modality = policy.get_modality_config()
-    print(modality)
+    print("Current modality config: \n", modality)
 
     # Create the dataset
     dataset = LeRobotSingleDataset(
@@ -135,7 +155,7 @@ if __name__ == "__main__":
     print("Running on all trajs with modality keys:", args.modality_keys)
 
     all_mse = []
-    for traj_id in range(args.trajs):
+    for traj_id in range(args.start_traj, args.start_traj + args.trajs):
         print("Running trajectory:", traj_id)
         mse = calc_mse_for_single_trajectory(
             policy,
@@ -145,9 +165,17 @@ if __name__ == "__main__":
             steps=args.steps,
             action_horizon=args.action_horizon,
             plot=args.plot,
+            plot_state=args.plot_state,
+            save_plot_path=args.save_plot_path,
         )
         print("MSE:", mse)
         all_mse.append(mse)
     print("Average MSE across all trajs:", np.mean(all_mse))
     print("Done")
     exit()
+
+
+if __name__ == "__main__":
+    # Parse arguments using tyro
+    config = tyro.cli(ArgsConfig)
+    main(config)
