@@ -12,7 +12,7 @@ from gr00t.data.types import (
 ur5e_config = {
     "video": ModalityConfig(
         delta_indices=[0],
-        modality_keys=["front_rgb", "side_rgb", "hand_rgb"],
+        modality_keys=["front_rgb", "hand_rgb", "left_rgb", "right_rgb"],
     ),
     "state": ModalityConfig(
         delta_indices=[0],
